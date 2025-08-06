@@ -246,6 +246,24 @@ def get_transform_intrinsics(transforms, fname):
 
     return intrinsics
 
+def flip_camera_direction(transform_matrix):
+    """
+    Flip camera direction by applying 180-degree rotation around Y-axis
+    """
+    flip_direction_mat = np.array([
+        [-1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, -1, 0],
+        [0, 0, 0, 1]
+    ])
+    
+    # Convert to numpy array if it's a list
+    if isinstance(transform_matrix, list):
+        transform_matrix = np.array(transform_matrix)
+    
+    flipped_transform = np.matmul(transform_matrix, flip_direction_mat)
+    return flipped_transform.tolist()
+
 def load_transform_json_data(input_path, skip_rate=0):
     """
     Load in poses and camera intrinsics from a transforms JSON file
@@ -264,6 +282,11 @@ def load_transform_json_data(input_path, skip_rate=0):
     for i, frame in enumerate(transforms["frames"]):
         fname = os.path.basename(frame["file_path"])
         transform = frame["transform_matrix"]
+        
+        # HACK: Apply camera direction flip for 3DGS pre-trained bicycle model
+        print("WARNING: Applying camera direction flip transform for 3DGS pre-trained bicycle model.")
+        print("         If this is not needed for your model, comment out the flip_camera_direction() call below.")
+        transform = flip_camera_direction(transform)
 
         fname = os.path.basename(str(fname)).split('.')[0]
 

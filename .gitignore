@@ -177,3 +177,5 @@ pyrightconfig.json
 
 *.ply
 *.png
+
+bicycle_3dgstopc_test/*
