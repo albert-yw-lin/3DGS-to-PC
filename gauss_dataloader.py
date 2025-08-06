@@ -67,6 +67,17 @@ def load_ply_data(path, max_sh_degree=3):
     for idx, attr_name in enumerate(scale_names):
         scales[:, idx] = np.asarray(plydata.elements[0][attr_name])
 
+    # Check if scales are in normal scale (already exponentiated) or log scale
+    # If the maximum scale value is > 10, assume they are normal scales and take log
+    # This heuristic works because log scales are typically small values (e.g., -5 to 5)
+    # while normal scales can be much larger (e.g., 0.001 to 100+)
+    max_scale = np.max(scales)
+    if max_scale > 10.0:
+        print(f"Detected normal scales (max scale: {max_scale:.6f}), converting to log scale")
+        scales = np.log(np.maximum(scales, 1e-8))  # Clamp to avoid log(0)
+    else:
+        print(f"Detected log scales (max scale: {max_scale:.6f}), using as-is")
+
     rot_names = [p.name for p in plydata.elements[0].properties if p.name.startswith("rot")]
     rot_names = sorted(rot_names, key = lambda x: int(x.split('_')[-1]))
     rots = np.zeros((xyz.shape[0], len(rot_names)))
