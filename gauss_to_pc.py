@@ -1,10 +1,12 @@
 import numpy as np
 import torch
 import sys
+import os
 import configargparse
 import gc
 import time
 import imageio
+import json
 #import matplotlib.pyplot as plt
 
 from tqdm import tqdm
@@ -22,6 +24,36 @@ from gauss_render import get_renderer
 from camera_handler import get_camera
 
 COLOR_QUALITY_OPTIONS = {"tiny": 180, "low": 360, "medium": 720, "high": 1280, "ultra": 1920, "original": None}
+
+# NOTE: this is only for debugging, not used anymore
+# def extract_camera_positions_from_transforms(transform_path, filter_suffix="0.jpg"):
+#     """
+#     Extract translation vectors from transform.json for frames ending with specified suffix
+    
+#     Args:
+#         transform_path: path to the transforms.json file
+#         filter_suffix: file extension filter (default: "0.jpg")
+    
+#     Returns:
+#         torch.Tensor: camera positions as (N, 3) tensor
+#     """
+#     with open(transform_path, 'r') as f:
+#         transforms_data = json.load(f)
+    
+#     camera_positions = []
+    
+#     for frame in transforms_data['frames']:
+#         file_path = frame['file_path']
+#         if file_path.endswith(filter_suffix):
+#             # Extract translation from transform matrix (last column, first 3 rows)
+#             transform_matrix = frame['transform_matrix']
+#             translation = [transform_matrix[0][3], transform_matrix[1][3], transform_matrix[2][3]]
+#             camera_positions.append(translation)
+    
+#     if camera_positions:
+#         return torch.tensor(camera_positions, dtype=torch.float32)
+#     else:
+#         return torch.empty((0, 3), dtype=torch.float32)
 
 class GaussPointCloudSettings(NamedTuple):
     """
@@ -520,6 +552,20 @@ def convert_3dgs_to_pc(input_path, transform_path, mask_path, pointcloud_setting
         if not pointcloud_settings.quiet:
             print("Skipping Rendering Gaussian Colours")
 
+        # Apply filtering even when not rendering colors
+        gaussians.apply_min_opacity(pointcloud_settings.min_opacity)
+        gaussians.apply_bounding_box(pointcloud_settings.bounding_box_min, pointcloud_settings.bounding_box_max)
+        gaussians.cull_large_gaussians(pointcloud_settings.cull_large_percentage)
+
+        gaussians.filter_gaussians()
+
+        if not pointcloud_settings.quiet:
+            print()
+            print(f"Number Gaussians after Culling: {gaussians.xyz.shape[0]}")
+
+        if gaussians.xyz.shape[0] < 1:
+            raise Exception("Number of Gaussians after culling is 0, meaning a point cloud cannot be generated")
+
     if not pointcloud_settings.quiet:
         print()
         print("Ensuring Gaussians are Positive Semidefinite")
@@ -737,6 +783,55 @@ def main():
 
     # Generate point cloud from 3DGS scene
     total_point_cloud, surface_point_cloud = convert_3dgs_to_pc(args.input_path, args.transform_path, args.mask_path, pointcloud_settings)
+    
+    # NOTE: this is only used for debugging purposes, not used anymore
+    # # Add camera positions from transforms.json for frames ending with "0.jpg"
+    # if args.transform_path is not None:
+    #     # Try to read camera positions from nuscenes transforms.json
+    #     nuscenes_transform_path = "data/nuscenes/transforms.json"
+    #     if os.path.exists(nuscenes_transform_path):
+    #         if not args.quiet:
+    #             print("Adding camera positions from NuScenes transforms.json")
+            
+    #         camera_positions = extract_camera_positions_from_transforms(nuscenes_transform_path, "0.jpg")
+            
+    #         if camera_positions.shape[0] > 0:
+    #             # Convert to the same device as the point cloud
+    #             camera_positions = camera_positions.to(pointcloud_settings.device)
+                
+    #             # Create light green colors for camera positions (RGB: 144, 238, 144)
+    #             light_green_colors = torch.zeros((camera_positions.shape[0], 3), dtype=total_point_cloud.colours.dtype, device=pointcloud_settings.device)
+    #             light_green_colors[:, 0] = 144  # Red channel
+    #             light_green_colors[:, 1] = 238  # Green channel
+    #             light_green_colors[:, 2] = 144  # Blue channel
+                
+    #             # Create dummy normals if normals are being calculated
+    #             if total_point_cloud.normals is not None:
+    #                 camera_normals = torch.zeros((camera_positions.shape[0], 3), dtype=total_point_cloud.normals.dtype, device=pointcloud_settings.device)
+    #             else:
+    #                 camera_normals = None
+                
+    #             # Combine camera positions with the existing point cloud
+    #             combined_points = torch.cat([total_point_cloud.points, camera_positions], dim=0)
+    #             combined_colors = torch.cat([total_point_cloud.colours, light_green_colors], dim=0)
+                
+    #             if camera_normals is not None:
+    #                 combined_normals = torch.cat([total_point_cloud.normals, camera_normals], dim=0)
+    #             else:
+    #                 combined_normals = None
+                
+    #             # Update the point cloud with camera positions included
+    #             total_point_cloud = PointCloudData(
+    #                 points=combined_points,
+    #                 colours=combined_colors,
+    #                 normals=combined_normals
+    #             )
+                
+    #             if not args.quiet:
+    #                 print(f"Added {camera_positions.shape[0]} camera positions as light green points")
+    #         else:
+    #             if not args.quiet:
+    #                 print("No frames ending with '0.jpg' found in transforms.json")
     
     # Clean point cloud if set
     if args.clean_pointcloud:
