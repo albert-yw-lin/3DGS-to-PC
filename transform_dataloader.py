@@ -212,7 +212,7 @@ def load_colmap_txt_data(input_path, skip_rate=0):
 
 def get_transform_intrinsics(transforms, fname):
     """ 
-    Reads in camera intrinsics from a transforms dictionary
+    Reads in camera intrinsics from a transforms dictionary or frame
     """
 
     intrinsics = [0, 0, 0, 0]
@@ -246,27 +246,46 @@ def get_transform_intrinsics(transforms, fname):
 
     return intrinsics
 
-def flip_camera_direction(transform_matrix):
+def get_frame_intrinsics(frame, global_transforms, fname):
     """
-    Flip camera direction by applying 180-degree rotation around Y-axis
+    Get intrinsics for a specific frame, supporting per-frame intrinsics
+    Priority: frame-level > global-level > image file
     """
-    flip_direction_mat = np.array([
-        [-1, 0, 0, 0],
-        [0, 1, 0, 0],
-        [0, 0, -1, 0],
-        [0, 0, 0, 1]
-    ])
     
-    # Convert to numpy array if it's a list
-    if isinstance(transform_matrix, list):
-        transform_matrix = np.array(transform_matrix)
+    # Check if frame has its own intrinsics
+    if any(key in frame for key in ["fl_x", "fl_y", "w", "h", "camera_angle_x", "camera_angle_y"]):
+        return get_transform_intrinsics(frame, fname)
     
-    flipped_transform = np.matmul(transform_matrix, flip_direction_mat)
-    return flipped_transform.tolist()
+    # Fall back to global intrinsics
+    if any(key in global_transforms for key in ["fl_x", "fl_y", "w", "h", "camera_angle_x", "camera_angle_y"]):
+        return get_transform_intrinsics(global_transforms, fname)
+    
+    # Last resort: derive from image file
+    return get_transform_intrinsics({}, fname)
+
+# this is only for 3dgs bicycle model debugging purposes
+# def flip_camera_direction(transform_matrix):
+#     """
+#     Flip camera direction by applying 180-degree rotation around Y-axis
+#     """
+#     flip_direction_mat = np.array([
+#         [-1, 0, 0, 0],
+#         [0, 1, 0, 0],
+#         [0, 0, -1, 0],
+#         [0, 0, 0, 1]
+#     ])
+    
+#     # Convert to numpy array if it's a list
+#     if isinstance(transform_matrix, list):
+#         transform_matrix = np.array(transform_matrix)
+    
+#     flipped_transform = np.matmul(transform_matrix, flip_direction_mat)
+#     return flipped_transform.tolist()
 
 def load_transform_json_data(input_path, skip_rate=0):
     """
     Load in poses and camera intrinsics from a transforms JSON file
+    Supports both global intrinsics and per-frame intrinsics for multi-camera setups
     """
 
     with open(input_path, "r") as transform_file:
@@ -274,26 +293,18 @@ def load_transform_json_data(input_path, skip_rate=0):
 
     json_transforms = {}
     intrinsics = {}
-
-    all_intrinsics = None 
-    if "fl_x" in transforms.keys() or "camera_angle_x" in transforms.keys():
-        all_intrinsics = get_transform_intrinsics(transforms, transforms["frames"][0]["file_path"])
     
     for i, frame in enumerate(transforms["frames"]):
-        fname = os.path.basename(frame["file_path"])
+        fname = os.path.basename(frame["file_path"]).split('.')[0]
         transform = frame["transform_matrix"]
         
         # HACK: Apply camera direction flip for 3DGS pre-trained bicycle model
-        print("WARNING: Applying camera direction flip transform for 3DGS pre-trained bicycle model.")
-        print("         If this is not needed for your model, comment out the flip_camera_direction() call below.")
-        transform = flip_camera_direction(transform)
+        # print("WARNING: Applying camera direction flip transform for 3DGS pre-trained bicycle model.")
+        # print("         If this is not needed for your model, comment out the flip_camera_direction() call below.")
+        # transform = flip_camera_direction(transform)
 
-        fname = os.path.basename(str(fname)).split('.')[0]
-
-        if all_intrinsics is None:
-            intrinsics[fname] = get_transform_intrinsics(frame, frame["file_path"])
-        else:
-            intrinsics[fname] = all_intrinsics
+        # Get intrinsics for this frame (supports per-frame intrinsics)
+        intrinsics[fname] = get_frame_intrinsics(frame, transforms, frame["file_path"])
 
         if i % (skip_rate + 1) == 0:
             json_transforms[fname] = transform 
