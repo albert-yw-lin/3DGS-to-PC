@@ -188,9 +188,8 @@ def convert_nuscenes_to_transforms(extrinsics_path, intrinsics_path, output_path
         transform_matrix = extrinsics[camera_name].copy()
 
         # Apply alignment if requested (same as nuScenes dataloader)
-        if camera_front_start is not None:
-            # Transform pose using inverse of first camera pose
-            transform_matrix = np.matmul(np.linalg.inv(camera_front_start), transform_matrix)
+        # Transform pose using inverse of first camera pose
+        transform_matrix = np.matmul(np.linalg.inv(camera_front_start), transform_matrix)
         
         # Apply NeRF coordinate transformation if requested
         # if apply_nerf_transform:

@@ -511,6 +511,22 @@ def convert_3dgs_to_pc(input_path, transform_path, mask_path, pointcloud_setting
         # Get new rendered Gaussian colours
         gaussians.colours = gaussian_renderer.get_gaussian_colours()
 
+        # # NOTE: debug code, to see if 3DGS model renders correctly
+        # # Create a test camera at origin pose for rendering a test image
+        # test_transform = torch.eye(4, device=pointcloud_settings.device, dtype=torch.float32)
+        # test_transform[1,1] = -1  # Flip Y-axis
+        # test_transform[2,2] = -1  # Flip Z-axis
+        # test_intrinsics = [720, 720, 360.0, 360.0]  # width, height, focal_x, focal_y
+        # test_camera = get_camera(pointcloud_settings.renderer_type, test_transform, test_intrinsics, 
+        #                         colour_resolution=720, sh_degree=pointcloud_settings.max_sh_degree, 
+        #                         white_bkgd=True, mask=None)
+        # # Render test image from origin pose
+        # test_image, _, _, test_depth = gaussian_renderer(test_camera)
+        # # Save the test image
+        # import torchvision
+        # torchvision.utils.save_image(test_image, "test_render_origin.png")
+        # print(f"Test image saved as test_render_origin.png (shape: {test_image.shape})")
+
         # Remove Gaussians that are not close to the predicted surface (depending on the STD)
         if pointcloud_settings.surface_distance_std is not None:
             gaussians.add_gaussians_to_cull(gaussian_renderer.get_gaussians_with_low_surface_distance())

@@ -264,23 +264,23 @@ def get_frame_intrinsics(frame, global_transforms, fname):
     return get_transform_intrinsics({}, fname)
 
 # this is only for 3dgs bicycle model debugging purposes
-# def flip_camera_direction(transform_matrix):
-#     """
-#     Flip camera direction by applying 180-degree rotation around Y-axis
-#     """
-#     flip_direction_mat = np.array([
-#         [-1, 0, 0, 0],
-#         [0, 1, 0, 0],
-#         [0, 0, -1, 0],
-#         [0, 0, 0, 1]
-#     ])
+def flip_camera_direction(transform_matrix):
+    """
+    Flip camera direction by applying 180-degree rotation around Y-axis
+    """
+    flip_direction_mat = np.array([
+        [-1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, -1, 0],
+        [0, 0, 0, 1]
+    ])
     
-#     # Convert to numpy array if it's a list
-#     if isinstance(transform_matrix, list):
-#         transform_matrix = np.array(transform_matrix)
+    # Convert to numpy array if it's a list
+    if isinstance(transform_matrix, list):
+        transform_matrix = np.array(transform_matrix)
     
-#     flipped_transform = np.matmul(transform_matrix, flip_direction_mat)
-#     return flipped_transform.tolist()
+    flipped_transform = np.matmul(transform_matrix, flip_direction_mat)
+    return flipped_transform.tolist()
 
 def load_transform_json_data(input_path, skip_rate=0):
     """
